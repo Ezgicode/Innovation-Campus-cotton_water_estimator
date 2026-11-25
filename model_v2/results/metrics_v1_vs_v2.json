@@ -1,0 +1,49 @@
+{
+  "rows": 570,
+  "v1": {
+    "test_split_80_20": {
+      "MAE": 1.132,
+      "RMSE": 1.48,
+      "R2": 0.595
+    },
+    "cv_5fold": {
+      "MAE": 1.136,
+      "RMSE": 1.503,
+      "R2": 0.642
+    },
+    "leave_one_season_out_water_limited": {
+      "MAE": 1.049,
+      "RMSE": 1.309,
+      "R2": 0.134
+    }
+  },
+  "v2": {
+    "test_split_80_20": {
+      "MAE": 0.541,
+      "RMSE": 0.834,
+      "R2": 0.871
+    },
+    "cv_5fold": {
+      "MAE": 0.631,
+      "RMSE": 0.898,
+      "R2": 0.872
+    },
+    "leave_one_season_out_water_limited": {
+      "MAE": 0.976,
+      "RMSE": 1.187,
+      "R2": 0.287
+    }
+  },
+  "v2_feature_importance": {
+    "full_irrigation": 0.221,
+    "doy_sin": 0.207,
+    "doy_cos": 0.178,
+    "temp": 0.167,
+    "rn": 0.096,
+    "wind": 0.037,
+    "et0": 0.035,
+    "rs": 0.031,
+    "vpd": 0.015,
+    "rh": 0.014
+  }
+}

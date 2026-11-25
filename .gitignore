@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.venv/
+.idea/
+model_v2/cotton_et_model_v2.pkl

@@ -1,153 +1,40 @@
-# Cotton Evapotranspiration (ET) Prediction Model
-## Data-Driven Irrigation Water Optimization
+# Model card: Cotton daily evapotranspiration (ET) model
 
-## Project Overview
-This project focuses on predicting daily evapotranspiration (ET) for cotton fields using meteorological and seasonal variables. Evapotranspiration is a critical indicator of crop water demand, and accurate estimation enables efficient irrigation planning and significant water savings in agriculture.
+## Purpose
+Estimate daily cotton water use (ET, mm/day) from weather data, as the basis for an irrigation recommendation. Intended for education, research and decision support with expert oversight; not for autonomous irrigation control.
 
-The model is trained on real-world field experiment data collected under controlled irrigation conditions and is designed to operate with live weather data during deployment. This makes the system suitable for real-world decision support in precision agriculture.
----
+## Versions
+| | v1 | v2 (current) |
+|---|---|---|
+| Code | `model_xgboost/train4.py` | `model_v2/train_v2.py` |
+| Algorithm | StandardScaler + Ridge (α = 1.0) | Random Forest (400 trees, min_samples_leaf = 3) |
+| Features | year, air temperature, RH, Rs, Rn, wind, sin/cos(DOY) | FAO-56 ET₀, VPD, air temperature, RH, Rs, Rn, wind, sin/cos(DOY), water regime |
+| Saved model | `cotton_et_model2.pkl` | `model_v2/cotton_et_model_v2.pkl` (created by `train_v2.py`) |
 
-##Technologies Used
+## Training data
+570 complete days from the Bushland, Texas lysimeter dataset (2000, 2001, 2008, 2012). See `datasetcard.md`.
 
-This project was developed using:
-- Python
-- Pandas
-- NumPy
-- Scikit-learn
-- Joblib
----
+## Evaluation
+| Evaluation | v1 MAE / RMSE / R² | v2 MAE / RMSE / R² |
+|---|---|---|
+| 80/20 split, `random_state=42` (114 test days) | 1.13 / 1.48 / 0.60 | 0.54 / 0.83 / 0.87 |
+| 5-fold CV (shuffled) | 1.14 / 1.50 / 0.64 | 0.63 / 0.90 / 0.87 |
+| Leave-one-season-out, water-limited seasons | 1.05 / 1.31 / 0.13 | 0.98 / 1.19 / 0.29 |
 
-##Author
+Full numbers: `model_v2/results/metrics_v1_vs_v2.json`.
 
-Ezgi Öztürk
-Computer Engineering
-Focus area: Artificial Intelligence for Sustainable Agriculture
-
----
-##License
-
-This project is intended for academic and research purposes only.
----
-
-## Project Objectives
-The main objectives of this project are:
-- To predict daily evapotranspiration (ET) for cotton crops
-- To support sustainable and water-efficient irrigation strategies
-- To demonstrate the application of machine learning to real agricultural problems
-- To bridge academic research with real-world deployment scenarios
-
----
-
-## Dataset
-The model is trained using the **Growth and Yield Data for the Bushland, Texas, Cotton Datasets**, published by the USDA Ag Data Commons.
-
-This dataset is based on multi-year field experiments conducted in Bushland, Texas, a semi-arid cotton-growing region. It includes cotton growth, yield, and meteorological measurements collected under different irrigation treatments.
-
-Key characteristics of the dataset include:
-- Multi-year observations
-- Semi-arid climate conditions
-- Real field-scale experimental data
-- Widespread use in agricultural water management research
-
-The dataset is used only during the training phase to ensure reproducibility and scientific validity.
-
----
-
-## Model Description
-The evapotranspiration prediction model is implemented as a supervised regression pipeline.
-
-Model details:
-- Model type: Ridge Regression (L2-regularized linear regression)
-- Pipeline structure:
-  - StandardScaler for feature normalization
-  - Ridge Regression with regularization parameter α = 1.0
-- Target variable: Evapotranspiration (ET)
-- Programming language: Python
-- Machine learning framework: scikit-learn
-
-Ridge Regression was selected to balance predictive performance and interpretability while controlling overfitting.
-
----
-
-## Input Features
-The model uses the following input features:
-- Year
-- Air temperature (°C)
-- Relative humidity (%)
-- Solar radiation (Rs, MJ/m²)
-- Net radiation (Rn, MJ/m²)
-- Wind speed at 2 meters (m/s)
-- Seasonal encoding of Day of Year (DOY) using sine and cosine transformations
-
-Seasonal encoding of DOY allows the model to capture annual climatic cycles smoothly without introducing artificial discontinuities.
-
----
-
-## Training Procedure
-The training workflow consists of the following steps:
-- Data cleaning and column normalization
-- Removal of rows with missing values
-- Seasonal transformation of DOY into sine and cosine components
-- Train/test split with an 80% / 20% ratio
-- Fixed random seed (42) for reproducibility
-
----
-
-## Model Evaluation
-Model performance is evaluated using standard regression metrics:
-- Mean Absolute Error (MAE)
-- R² Score
-
-Evaluation is performed on a held-out test set. The results indicate stable performance in predicting evapotranspiration under typical cotton-growing conditions.
-
----
-
-## Live Data Integration (API Usage)
-During deployment, the model can retrieve meteorological input variables (such as temperature, humidity, radiation, and wind speed) from external weather data APIs.
-
-Important clarifications:
-- External APIs are used only at inference time
-- No API-based data is used during model training
-- API keys, tokens, and provider-specific details are not stored or shared in this repository
-
-This design ensures reproducible training and real-time applicability in operational environments.
-
----
+## Why v1 was replaced
+v1 relies heavily on the year, which mostly encodes differences in water availability between the four seasons. With the same weather it predicts 3.5 mm/day for 2000, 7.2 for 2012 and 11.2 for 2025, so predictions for years after 2012 are extrapolated upwards.
 
 ## Limitations
-- The model is trained on data from a single semi-arid region (Bushland, Texas)
-- Performance may decrease under extreme or previously unseen climatic conditions
-- Predictions depend on the accuracy and availability of external weather data during deployment
-- Linear assumptions may limit performance in highly nonlinear climate–crop interactions
+- One site and four seasons; generalisation to unseen seasons is modest (leave-one-season-out R² 0.29) and has not been tested in other regions.
+- The water-regime feature is inferred from the data.
+- Random Forests do not extrapolate beyond the training range.
+- At inference time, weather comes from NASA POWER (a gridded product) while training used on-site measurements; net radiation is approximated as 0.75 × Rs.
 
----
-
-## Recommendations
-- Model predictions should be validated with local agronomic expertise before real-world use
-- Retraining is recommended when applying the model to different regions or crops
-- The model should be used as a decision-support tool rather than a fully autonomous irrigation controller
-
----
-
-## Getting Started
-
-```python
-import joblib
-import pandas as pd
-import numpy as np
-
-model = joblib.load("cotton_et_model2.pkl")
-
-input_data = pd.DataFrame([{
-    "Year": 2020,
-    "NW Air Temp in degrees C": 25,
-    "NW RH in %": 45,
-    "NW Rs in MJ/m^2": 20,
-    "NW Rn in MJ/m^2": 15,
-    "NW 2-m Wind Speed in m/s": 3,
-    "DOY_sin": np.sin(2 * np.pi * 180 / 365),
-    "DOY_cos": np.cos(2 * np.pi * 180 / 365)
-}])
-
-prediction = model.predict(input_data)
-
+## Usage
+```bash
+cd model_v2
+python train_v2.py
+streamlit run app_v2.py
+```
