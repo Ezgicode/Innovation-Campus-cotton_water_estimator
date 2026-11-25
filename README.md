@@ -1,6 +1,6 @@
 # Cotton Water Estimator
 
-Predicting how much water a cotton field needs each day, from real field measurements and live weather data.
+Daily cotton evapotranspiration model trained on USDA lysimeter data, served through Streamlit apps that pull live NASA POWER weather.
 
 Built during the **UN & Samsung Innovation Campus** programme and later improved. Portfolio page:
 [ezgiportfolio.vercel.app/cotton-estimator](https://ezgiportfolio.vercel.app/cotton-estimator)
@@ -19,28 +19,34 @@ Same 80/20 test split (114 days, `random_state=42`) for both models:
 
 v2 halves the error. Predicting a completely unseen season is still the hardest case; more seasons and sites are needed.
 
-## How it works
+## Pipeline
 
-1. **Data:** daily cotton evapotranspiration (ET) and weather measurements from the USDA-ARS Bushland, Texas cotton datasets. 1,463 raw daily records were cleaned (decimal formats, missing values) into **570 complete days** from the 2000, 2001, 2008 and 2012 seasons. See the [dataset card](datasetcard.md).
-2. **Model:** predicts daily cotton ET (mm/day) from temperature, humidity, solar and net radiation, wind speed and season. See the [model card](modelcard.md).
-3. **App:** a Streamlit app fetches the day's weather for any latitude/longitude from the NASA POWER API, predicts ET and converts it into an irrigation depth and total liters for the field, using the chosen irrigation method's efficiency (drip 0.90, sprinkler 0.75, flood 0.60).
+```
+raw daily records (1,463)  →  script/      decimal commas → dots, drop incomplete rows
+                           →  final.xlsx   570 complete days, 2000 / 2001 / 2008 / 2012
+                           →  model_v2/    FAO-56 features + Random Forest
+NASA POWER (lat, lon, date) →  app_v2.py    ET → net / gross irrigation (mm) → liters
+```
+
+Irrigation efficiencies used by the apps: drip 0.90, sprinkler 0.75, flood 0.60. Details: [dataset card](datasetcard.md) · [model card](modelcard.md).
 
 | Input form | Results |
 |---|---|
 | ![form](docs/images/v2-form.jpg) | ![results](docs/images/v2-results.jpg) |
 
-*Demo run: 1 ha drip-irrigated field, Harran Plain (Şanlıurfa), 15 July 2025 → ET 9.17 mm/day, about 102,000 L.*
+*`app_v2.py` with lat 37.159, lon 39.004, 2025-07-15, full irrigation, drip, 10,000 m² → ET₀ 9.01, ET 9.17 mm/day, gross 10.19 mm, 101,940 L.*
 
-## From v1 to v2
+## Model changes (v1 → v2)
 
-**v1** (`model_xgboost/train4.py`) is a standardized Ridge regression on weather, day of year and **year**. Reviewing it later, I found the year acted as a shortcut: the four seasons differ mainly in water availability, so with identical weather v1 predicts 3.5 mm/day for 2000 and 11.2 mm/day for 2025.
+| | v1 `model_xgboost/train4.py` | v2 `model_v2/train_v2.py` |
+|---|---|---|
+| Algorithm | StandardScaler + Ridge | Random Forest, 400 trees |
+| `Year` feature | used | dropped |
+| Physics features | – | FAO-56 ET₀, vapour pressure deficit |
+| Water regime | – | full vs. limited irrigation flag |
+| Evaluation | one 80/20 split | 80/20 split + 5-fold CV + leave-one-season-out |
 
-**v2** (`model_v2/`):
-- removes the year feature,
-- adds FAO-56 Penman-Monteith reference ET₀ and vapour pressure deficit,
-- adds a water-regime input (2012 behaves as well-watered, seasonal ET/ET₀ = 0.82; the other seasons as water-limited, 0.34–0.46),
-- uses a Random Forest,
-- and is evaluated with 5-fold CV and leave-one-season-out in addition to the original split.
+Why `Year` was dropped: holding every weather input fixed, v1 returns 3.5 mm/day for year 2000, 7.2 for 2012 and 11.2 for 2025. The coefficient was absorbing season-level differences in water supply, so any post-2012 date was extrapolated. In v2 that signal is modelled explicitly by the water-regime flag (seasonal ET/ET₀: 2012 = 0.82, 2000/2001/2008 = 0.34–0.46).
 
 ## Repository structure
 
